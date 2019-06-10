@@ -9,8 +9,8 @@ type Configure struct {
 }
 
 type Block struct {
-	Start []string
-	Ends []string
+	Start map[string]interface{}
+	Ends map[string]interface{}
 	Title string
 }
 

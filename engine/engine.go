@@ -4,34 +4,30 @@ import (
 	"parseExcel/config"
 	"parseExcel/reader"
 	"fmt"
+	"parseExcel/utils"
 )
 
 type Engine struct {
 	//解析出的sheet数据
 	Data SourceData
 	//解析出的标题
-	Title map[string]interface{}
+	Title SourceData
 	//数据源Reader
 	DataReader reader.Reader
 	//解析配置
 	configure config.Configure
+
+	blockParser *BlockParser
 }
 
-func inArray(need string, needArr []string) bool {
-	for _,v := range needArr{
-		if need == v{
-			return true
-		}
-	}
-	return false
-}
 
 func NewEngine(rd reader.Reader, configure config.Configure) *Engine {
 	return &Engine{
 		DataReader: rd,
 		configure:configure,
 		Data: NewSourceData(),
-		Title:make(map[string]interface{}),
+		Title:NewSourceData(),
+		blockParser:NewBlockParser(configure),
 	}
 }
 
@@ -40,25 +36,22 @@ func (e *Engine)Run()  {
 	fmt.Println(e.configure.Sheets)
 	for _, sheetName := range sheets {
 		//疑问 []string 不能转 []interface{}
-		if !inArray(sheetName, e.configure.Sheets) {
+		if !utils.InArray(sheetName, e.configure.Sheets) {
 			continue
 		}
 		e.DataReader.ChangeSheet(sheetName)
 		//当前偏移
-		offset := 0
 		rowsData := e.DataReader.Read()
-		rowsLen := len(rowsData)
-
-		for offset < rowsLen {
-			//处理offset数据
-			if offset > 0 {
-				rowsData = rowsData[offset:]
+		inputChan := make(chan [][]interface{})
+		outChan := make(chan DataInterface)
+		go e.Schduler(5, sheetName, inputChan, outChan)
+		inputChan <- rowsData
+		go func() {
+			for dataInterface := range outChan {
+				e.Data.Append(dataInterface.SheetName, dataInterface.Data)
+				e.Title.Append(dataInterface.SheetName, dataInterface.Title)
 			}
-			var blockData,blockTitle = make(map[string][]interface{}), make(map[string][]interface{})
-			blockData,blockTitle, offset = e.ParserBlock(rowsData, offset)
-			e.Data.Append(sheetName, blockData)
-			e.Title[sheetName] = blockTitle
-		}
+		}()
 
 	}
 }
@@ -90,7 +83,8 @@ func (e *Engine)Schduler(workerCount int, sheetName string, inputChan chan[][]in
 					rowsData = rowsData[offset:]
 				}
 				var blockData,blockTitle = make(map[string][]interface{}), make(map[string][]interface{})
-				blockData,blockTitle, offset = e.ParserBlock(rowsData, offset)
+				//调用解析器
+				blockData,blockTitle, offset = e.blockParser.ParserBlock(rowsData, offset)
 				dataInterface.Data = blockData
 				dataInterface.Title = blockTitle
 				dataInterface.SheetName = sheetName
@@ -101,54 +95,9 @@ func (e *Engine)Schduler(workerCount int, sheetName string, inputChan chan[][]in
 	}
 }
 
-//返回多块数据
-func (e *Engine)ParserBlock(sheetData [][]interface{}, offset int) (
-	map[string][]interface{},
-	map[string][]interface{},
-	int)  {
-	var blockData map[string][]interface{}
-	blockData = make(map[string][]interface{})
-	//title
-	var blockTitle map[string][]interface{}
-	blockTitle = make(map[string][]interface{})
-	//foreach sheetData
-	currentBlock := ""
-	count := 0
-	for i, rows := range sheetData {
-		count++
-		//traitTitle
-		f, title := traitTitle(rows, i, sheetData)
-		if f {
-			currentBlock = title
-			fmt.Println(currentBlock)
-			blockData[currentBlock] = []interface{}{}
-			// no handleRows
-			blockTitle[currentBlock] = rows
-			continue
-		}
-
-		//no select
-		if currentBlock == "" {
-			continue
-		}
-
-		//traitEnd
-		if traitEnd(rows, i, sheetData) {
-			break
-		}
-
-		//arrayFilter
-		if arrayFilter(rows, i, sheetData) {
-			continue
-		}
-
-		//handle Rows
-		blockData[currentBlock] = append(blockData[currentBlock], rows)
-	}
-	//return blockData.offset.dataTitle
-	return blockData, blockTitle, offset + count
-}
-
 func (e *Engine)GetSheetData() SourceData {
 	return e.Data
+}
+func (e *Engine)GetSheetTitle() SourceData {
+	return e.Title
 }

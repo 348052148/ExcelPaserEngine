@@ -2,5 +2,10 @@
   "mode": "go",
   "sheets" : [
     "庆瑞3号","利伟2号"
-  ]
+  ],
+  "block": {
+    "start": {
+      "EqualColVal" : ["0","Strategy"]
+    }
+  }
 }
