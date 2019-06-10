@@ -75,13 +75,23 @@ func (parser *BlockParser)traitStart(rows []interface{}, i int, sheetData[][]int
 }
 
 func (parser *BlockParser)traitEnd(rows []interface{}, i int, sheetData[][]interface{}) bool {
-	if rows[0] == "HONG KONG" {
-		return true
+	for funcStr,funcParams := range parser.configure.Block.Start {
+		if function, ok := validate.ValidateFuncMap[funcStr]; ok {
+			if !function(rows,sheetData,funcParams) {
+				return false
+			}
+		}
 	}
-	return false
+	return true
 }
 
 func (parser *BlockParser)traitFilter(rows []interface{}, i int, sheetData[][]interface{}) bool {
-
-	return false
+	for funcStr,funcParams := range parser.configure.Block.Start {
+		if function, ok := validate.ValidateFuncMap[funcStr]; ok {
+			if !function(rows,sheetData,funcParams) {
+				return false
+			}
+		}
+	}
+	return true
 }
