@@ -5,6 +5,7 @@ import (
 	"parseExcel/reader"
 	"fmt"
 	"parseExcel/utils"
+	"sync"
 )
 
 type Engine struct {
@@ -20,7 +21,6 @@ type Engine struct {
 	blockParser *BlockParser
 }
 
-
 func NewEngine(rd reader.Reader, configure config.Configure) *Engine {
 	return &Engine{
 		DataReader: rd,
@@ -33,7 +33,7 @@ func NewEngine(rd reader.Reader, configure config.Configure) *Engine {
 
 func (e *Engine)Run()  {
 	sheets := e.DataReader.GetSheets()
-	fmt.Println(e.configure.Sheets)
+	wg := &sync.WaitGroup{}
 	for _, sheetName := range sheets {
 		//疑问 []string 不能转 []interface{}
 		if !utils.InArray(sheetName, e.configure.Sheets) {
@@ -42,18 +42,11 @@ func (e *Engine)Run()  {
 		e.DataReader.ChangeSheet(sheetName)
 		//当前偏移
 		rowsData := e.DataReader.Read()
-		inputChan := make(chan [][]interface{})
-		outChan := make(chan DataInterface)
-		go e.Schduler(5, sheetName, inputChan, outChan)
-		inputChan <- rowsData
-		go func() {
-			for dataInterface := range outChan {
-				e.Data.Append(dataInterface.SheetName, dataInterface.Data)
-				e.Title.Append(dataInterface.SheetName, dataInterface.Title)
-			}
-		}()
-
+		wg.Add(1)
+		e.Schduler(sheetName, rowsData, wg)
 	}
+	wg.Wait()
+
 }
 
 type DataInterface struct {
@@ -62,36 +55,23 @@ type DataInterface struct {
 	Title map[string][]interface{}
 }
 
-
 //schduler
-func (e *Engine)Schduler(workerCount int, sheetName string, inputChan chan[][]interface{}, outputChan chan DataInterface)  {
-	for i:=0; i< workerCount; i++ {
-		rowsData := <-inputChan
-		go func(rowsData [][]interface{}) {
-			//当前偏移
-			offset := 0
-			rowsLen := len(rowsData)
+func (e *Engine)Schduler(sheetName string, rowsData [][]interface{}, wg *sync.WaitGroup)  {
+	defer wg.Done()
+	//当前偏移
+	offset := 0
+	rowsLen := len(rowsData)
 
-			dataInterface := DataInterface{
-				Data:make(map[string][]interface{}),
-				Title:make(map[string][]interface{}),
-			}
+	for offset < rowsLen  {
+		fmt.Println(offset)
 
-			for offset < rowsLen {
-				//处理offset数据
-				if offset > 0 {
-					rowsData = rowsData[offset:]
-				}
-				var blockData,blockTitle = make(map[string][]interface{}), make(map[string][]interface{})
-				//调用解析器
-				blockData,blockTitle, offset = e.blockParser.ParserBlock(rowsData, offset)
-				dataInterface.Data = blockData
-				dataInterface.Title = blockTitle
-				dataInterface.SheetName = sheetName
-				//传出数据
-				outputChan<-dataInterface
-			}
-		}(rowsData)
+		var blockData,blockTitle = make(map[string][]interface{}), make(map[string][]interface{})
+		//调用解析器
+		blockData,blockTitle, offset = e.blockParser.ParserBlock(rowsData, offset)
+
+		//传出数据
+		e.Data.Append(sheetName, blockData)
+		e.Title.Append(sheetName, blockTitle)
 	}
 }
 

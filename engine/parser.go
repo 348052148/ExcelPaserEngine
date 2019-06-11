@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"parseExcel/config"
 	"parseExcel/validate"
+	"fmt"
 )
 
 type BlockParser struct {
@@ -28,9 +29,11 @@ func (parser *BlockParser)ParserBlock(sheetData [][]interface{}, offset int) (
 	//foreach sheetData
 	currentBlock := ""
 	count := 0
-	for i, rows := range sheetData {
+	for i:=offset; i < len(sheetData); i++ {
+		rows := sheetData[i]
+	//for i, rows := range sheetData[offset:] {
 		count++
-		//traitTitle
+		//块数据开始
 		f, title := parser.traitStart(rows, i, sheetData)
 		if f {
 			currentBlock = title
@@ -39,59 +42,66 @@ func (parser *BlockParser)ParserBlock(sheetData [][]interface{}, offset int) (
 			blockTitle[currentBlock] = rows
 			continue
 		}
-
-		//no select
+		//未找到块开始时，跳过数据行
 		if currentBlock == "" {
 			continue
 		}
-
-		//traitEnd
+		//块数据结尾
 		if parser.traitEnd(rows, i, sheetData) {
 			break
 		}
-
-		//arrayFilter
+		//过滤满足条件的数据行
 		if parser.traitFilter(rows, i, sheetData) {
 			continue
 		}
-
-		//handle Rows
+		//处理rows数据
 		blockData[currentBlock] = append(blockData[currentBlock], rows)
 	}
 	//return blockData.offset.dataTitle
 	return blockData, blockTitle, offset + count
 }
-
-
+//验证开始
 func (parser *BlockParser)traitStart(rows []interface{}, i int, sheetData[][]interface{}) (bool,string) {
-	for funcStr,funcParams := range parser.configure.Block.Start {
+	//默认为自动生成的标题
+	title := "$"+strconv.Itoa(i)
+	//获取标题
+	if parser.configure.Block.Title != "" {
+		tidx,_:= strconv.Atoi(parser.configure.Block.Title)
+		title = rows[tidx].(string)
+	}
+
+	if parser.RulesValidate(parser.configure.Block.Start, rows, i, sheetData) {
+		return true,title
+	}
+
+	return false,title
+}
+
+func (parser *BlockParser)RulesValidate(rules map[string]interface{}, rows []interface{}, i int, sheetData[][]interface{}) bool  {
+	if rules == nil {
+		return false
+	}
+	for funcStr,funcParams := range rules {
 		if function, ok := validate.ValidateFuncMap[funcStr]; ok {
-			if !function(rows,sheetData,funcParams) {
-				return false,strconv.Itoa(i)
+			if !function(rows, i, sheetData,funcParams) {
+				return false
 			}
 		}
 	}
-	return true,strconv.Itoa(i)
+	return true
 }
 
+//验证结尾
 func (parser *BlockParser)traitEnd(rows []interface{}, i int, sheetData[][]interface{}) bool {
-	for funcStr,funcParams := range parser.configure.Block.Start {
-		if function, ok := validate.ValidateFuncMap[funcStr]; ok {
-			if !function(rows,sheetData,funcParams) {
-				return false
-			}
-		}
+	if parser.RulesValidate(parser.configure.Block.Ends, rows, i, sheetData) {
+		return true
 	}
-	return true
+	return false
 }
-
+//过滤验证
 func (parser *BlockParser)traitFilter(rows []interface{}, i int, sheetData[][]interface{}) bool {
-	for funcStr,funcParams := range parser.configure.Block.Start {
-		if function, ok := validate.ValidateFuncMap[funcStr]; ok {
-			if !function(rows,sheetData,funcParams) {
-				return false
-			}
-		}
+	if parser.RulesValidate(parser.configure.Filter.Rules, rows, i, sheetData) {
+		return true
 	}
-	return true
+	return false
 }

@@ -6,6 +6,7 @@ type Configure struct {
 	Sheets []string
 	Block Block
 	Filter Filter
+	RowFormat RowFormat
 }
 
 type Block struct {
@@ -15,7 +16,7 @@ type Block struct {
 }
 
 type Filter struct {
-	Rules []string
+	Rules map[string]interface{}
 }
 
 type RowFormat struct {

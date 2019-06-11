@@ -1,0 +1,16 @@
+{
+  "mode": "go",
+  "sheets" : [
+    "Summary"
+  ],
+  "block": {
+    "title": "2",
+    "start": {
+      "RowNextColVal" : ["2","仓位"]
+    },
+    "ends": {
+      "EqualColVal" : ["1","预警平仓机制"]
+    }
+  }
+
+}

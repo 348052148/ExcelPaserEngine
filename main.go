@@ -11,8 +11,8 @@ import (
 )
 
 func main() {
-	filePath := flag.String("file", "E:/go/src/parseExcel/excel/test20190402.xlsx", "--文件路径")
-	tpl := flag.String("tpl", "E:/go/src/parseExcel/tpls/default.json", "--解析模版")
+	filePath := flag.String("file", "/Users/zhouhui/go/src/parseExcel/test20190402.xlsx", "--文件路径")
+	tpl := flag.String("tpl", "/Users/zhouhui/go/src/parseExcel/default.json", "--解析模版")
 	//目标：
 	// 1. 解析引擎
 	// 2. tpl 解析方式 - yaml json prototype
