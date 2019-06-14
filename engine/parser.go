@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"parseExcel/config"
 	"parseExcel/validate"
-	"fmt"
 )
 
 type BlockParser struct {
