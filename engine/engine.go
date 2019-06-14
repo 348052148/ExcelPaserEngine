@@ -67,7 +67,7 @@ func (e *Engine)Run()  {
 					if !ok {
 						return nil
 					}
-					e.Schduler(dataMessage.SheetName, dataMessage.Data)
+					e.Parse(dataMessage.SheetName, dataMessage.Data)
 				}
 			}
 			return nil
@@ -78,7 +78,7 @@ func (e *Engine)Run()  {
 }
 
 //schduler
-func (e *Engine)Schduler(sheetName string, rowsData [][]interface{})  {
+func (e *Engine)Parse(sheetName string, rowsData [][]interface{})  {
 	//当前偏移
 	offset := 0
 	rowsLen := len(rowsData)
